@@ -1,10 +1,14 @@
 import os
+import json
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import accuracy_score, f1_score
+from sklearn.metrics import classification_report
 from xgboost import XGBClassifier
 import joblib
+import numpy as np
+np.random.seed(42)
+
 
 DATA_PATH = "data/raw/attrition.csv"
 ARTIFACT_DIR = "artifacts"
@@ -18,7 +22,7 @@ def preprocess_data(df):
     df = df.copy()
 
     encoders = {}
-    for col in df.select_dtypes(include="object").columns:
+    for col in df.select_dtypes(include=["object","string"]).columns:
         le = LabelEncoder()
         df[col] = le.fit_transform(df[col])
         encoders[col] = le
@@ -35,7 +39,6 @@ def train(X_train, y_train):
         max_depth=5,
         learning_rate=0.1,
         eval_metric="logloss",
-        use_label_encoder=False,
         random_state=42,
     )
     model.fit(X_train, y_train)
@@ -44,8 +47,18 @@ def train(X_train, y_train):
 
 def evaluate(model, X_test, y_test):
     preds = model.predict(X_test)
-    print("Accuracy:", accuracy_score(y_test, preds))
-    print("F1 Score:", f1_score(y_test, preds))
+
+    report = classification_report(y_test, preds, output_dict=True)
+
+    print(classification_report(y_test, preds))
+
+    return report
+
+def save_metrics(report):
+    os.makedirs("artifacts", exist_ok=True)
+    with open("artifacts/metrics.json", "w") as f:
+        json.dump(report, f, indent=4)
+
 
 
 def save_artifacts(model, encoders):
@@ -63,7 +76,9 @@ def main():
     )
 
     model = train(X_train, y_train)
-    evaluate(model, X_test, y_test)
+    report = evaluate(model, X_test, y_test)
+    save_metrics(report)
+
     save_artifacts(model, encoders)
 
 
