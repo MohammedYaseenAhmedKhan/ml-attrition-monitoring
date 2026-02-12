@@ -20,6 +20,17 @@ def load_data(path):
 
 def preprocess_data(df):
     df = df.copy()
+    # Drop non-informative columns
+    columns_to_drop = [
+        "EmployeeCount",
+        "EmployeeNumber",
+        "Over18",
+        "StandardHours"
+    ]
+
+    df = df.drop(columns=columns_to_drop)
+
+
 
     encoders = {}
     for col in df.select_dtypes(include=["object","string"]).columns:
