@@ -1,175 +1,210 @@
- ML Attrition Monitoring System
+# ML Attrition Monitoring System
 
-A production-style machine learning system that not only predicts employee attrition but continuously monitors model health through data drift, prediction drift, and performance decay detection.
+A production-oriented machine learning system that predicts employee attrition and continuously monitors model health after deployment using statistical drift detection and performance evaluation techniques.
 
- Problem Statement
+---
 
-Machine learning models often degrade silently after deployment due to:
+## Overview
 
-Changing data distributions
+Most machine learning projects stop at model training.  
+This project extends beyond that by implementing a complete ML lifecycle:
 
-Shifts in model confidence
+- Model training
+- API-based deployment
+- Prediction logging
+- Data drift detection
+- Prediction drift monitoring
+- Performance decay detection
+- Retraining recommendation logic
 
-Real-world behavioral changes
+The focus is not just predictive accuracy, but **model reliability in production environments**.
 
-This project demonstrates a full ML lifecycle system that detects such failures and recommends retraining when necessary.
+---
 
-System Architecture
-Training Layer
-    ↓
-Model Artifacts (model.pkl, encoders.pkl, metrics.json)
-    ↓
-FastAPI Inference Service
-    ↓
-Prediction Logging
-    ↓
-Monitoring Layer
-    ├── Data Drift Detection (PSI)
-    ├── Prediction Drift Detection
-    └── Performance Decay Detection
-    ↓
-Retraining Recommendation
+## Architecture
 
- Project Structure
-src/
-├── training/
-│   └── train_model.py
-├── inference/
-│   ├── app.py
-│   └── schemas.py
-└── monitoring/
-    ├── data_drift.py
-    ├── prediction_drift.py
-    └── performance_decay.py
 
- Training Layer
 
-Dataset: IBM HR Attrition Dataset
++------------------+
+| Training Layer |
++------------------+
+|
+v
++-------------------------------+
+| Saved Artifacts |
+| model.pkl |
+| encoders.pkl |
+| metrics.json |
++-------------------------------+
+|
+v
++------------------+
+| FastAPI Server |
+| POST /predict |
++------------------+
+|
+v
++---------------------------+
+| Prediction Logging |
+| prediction_logs.json |
++---------------------------+
+|
+v
++--------------------------------------+
+| Monitoring Layer |
+| - Data Drift (PSI) |
+| - Prediction Drift |
+| - Performance Decay |
++--------------------------------------+
+|
+v
++-----------------------------+
+| Retraining Recommendation |
++-----------------------------+
 
-Model: XGBoost Classifier
 
-Feature Engineering:
+---
 
-Dropped non-informative columns:
+## Dataset
 
-EmployeeCount
+**IBM HR Attrition Dataset**
 
-EmployeeNumber
+**File Location:**
 
-Over18
 
-StandardHours
+data/raw/attrition.csv
 
-Label encoding for categorical features
 
-Evaluation:
+### Target Variable
+- `Attrition` (Yes / No → 1 / 0)
 
-Precision
+### Removed Columns
+- EmployeeCount
+- EmployeeNumber
+- Over18
+- StandardHours
 
-Recall
+These were removed because they were constant or non-informative.
 
-F1-score
+### Encoded Categorical Features
+- BusinessTravel
+- Department
+- EducationField
+- Gender
+- JobRole
+- MaritalStatus
+- OverTime
 
-Artifacts saved:
+LabelEncoder was used to ensure schema consistency across training and inference.
 
-model.pkl
+---
 
-encoders.pkl
+## Model
 
-metrics.json
+**Algorithm:** XGBoost Classifier  
 
-Baseline F1-score is stored for future performance comparison.
+**Evaluation Metrics:**
+- Precision
+- Recall
+- F1-score (primary metric due to class imbalance)
 
- Inference Layer (FastAPI)
+Baseline F1-score is stored in:
 
-The trained model is deployed locally using FastAPI.
 
-Endpoints:
 
-GET / → Health check
+artifacts/metrics.json
 
-POST /predict → Returns:
 
-Prediction (0/1)
+This value is later used for performance decay detection.
 
-Attrition probability
+---
 
-Every prediction is logged to:
+## Inference API
+
+Built using **FastAPI** and served via **Uvicorn**.
+
+### Endpoint
+
+
+
+POST /predict
+
+
+Supports:
+- Single employee prediction
+- Batch employee prediction
+
+Returns:
+- Binary prediction (0 or 1)
+- Attrition probability
+
+All predictions are logged to:
+
+
 
 artifacts/prediction_logs.json
 
 
-This enables real-time monitoring.
+---
 
- Monitoring Layer
-1️ Data Drift Detection
+## Monitoring Capabilities
 
-Uses Population Stability Index (PSI) to compare:
+### 1. Data Drift Detection
 
-Baseline training distribution
+Uses **Population Stability Index (PSI)** to detect distribution shifts between baseline and new data.
 
-New incoming data distribution
+PSI Thresholds:
+- < 0.1 → Stable
+- 0.1 – 0.25 → Moderate Drift
+- > 0.25 → Significant Drift
 
-Threshold:
+---
 
-PSI < 0.1 → Stable
+### 2. Prediction Drift Detection
 
-0.1–0.25 → Moderate drift
+Monitors changes in mean predicted probability.
 
-0.25 → Significant drift
+Drift is detected if:
 
-Output:
 
-artifacts/drift_report.json
 
-2️ Prediction Drift Detection
+abs(current_mean - baseline_mean) > threshold
 
-Monitors shift in average predicted probability.
 
-Compares:
+---
 
-Baseline mean probability
-
-Current mean probability
-
-Flags drift if deviation exceeds threshold.
-
-Output:
-
-artifacts/prediction_drift_report.json
-
-3️ Performance Decay Detection
+### 3. Performance Decay Detection
 
 Compares:
 
-Baseline F1-score
+- Baseline F1-score
+- Current F1-score
 
-Current F1-score on new labeled data
+If degradation exceeds a defined threshold, retraining is recommended.
 
-If F1 drop exceeds threshold:
+---
 
-retraining_recommended = true
+## Tech Stack
 
+- Python
+- pandas
+- numpy
+- scikit-learn
+- xgboost
+- FastAPI
+- uvicorn
+- joblib
 
-Output:
+---
 
-artifacts/performance_decay_report.json
+## How to Run
 
- Retraining Logic
+ 1. Train the Model
 
-The system recommends retraining if:
-
-Significant performance decay is detected
-
-Monitoring thresholds are exceeded
-
-This simulates enterprise ML lifecycle management.
-
- How to Run
-1️ Train Model
+``bash
 python src/training/train_model.py
 
-2️ Start API
+2. Start the API
 uvicorn src.inference.app:app --reload
 
 
@@ -177,65 +212,19 @@ Open:
 
 http://127.0.0.1:8000/docs
 
-3️ Run Data Drift Detection
+3. Run Monitoring Scripts
 python src/monitoring/data_drift.py
-
-4️ Run Prediction Drift Detection
 python src/monitoring/prediction_drift.py
-
-5️ Run Performance Decay Detection
 python src/monitoring/performance_decay.py
 
- Key Learnings
+#Key Engineering Learnings
 
-Importance of feature consistency between training and inference
+Maintaining schema consistency between training and inference
 
-Handling schema mismatches in production ML systems
+Saving preprocessing artifacts for production use
 
-Statistical drift detection using PSI
+Monitoring deployed ML systems using statistical techniques
 
-Monitoring prediction behavior over time
+Detecting silent model degradation
 
-Detecting performance degradation and triggering retraining decisions
-
- Why This Project Is Different
-
-This is not just a classification model.
-
-It demonstrates:
-
-End-to-end ML system design
-
-Deployment simulation
-
-Monitoring and lifecycle management
-
-Production-oriented engineering thinking
-
- Future Improvements
-
-Dockerization
-
-Scheduled monitoring jobs
-
-Automated retraining pipeline
-
-Cloud deployment
-
-CI/CD integration
-
- Final Outcome
-
-A complete machine learning lifecycle system capable of:
-
-Training
-
-Deployment
-
-Monitoring
-
-Drift detection
-
-Performance evaluation
-
-Retraining recommendation
+Handling real-world ML deployment errors
