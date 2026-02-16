@@ -74,3 +74,19 @@ ml-attrition-monitoring/
 - Prediction monitoring
 - Alerting logic
 - Automated retraining readiness
+
+
+---
+
+## Phase 2: Monitoring Layer
+
+The system includes statistical monitoring to detect data drift in deployed environments.
+
+### Data Drift Detection
+- Implemented Population Stability Index (PSI)
+- Feature-wise distribution comparison
+- Threshold-based drift flagging
+- Drift report saved as JSON artifact
+
+This ensures the model remains reliable as real-world data evolves.
+
